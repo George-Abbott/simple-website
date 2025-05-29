@@ -93,16 +93,20 @@
                 speed: 4,
                 angle: 0,
                 shootCooldown: 0,
-                maxShootCooldown: 10
+                maxShootCooldown: 10,
+                damage: 1, // Base damage for bullets
+                damageMultiplier: 1 // Multiplier for damage upgrades
             },
             bullets: [],
             enemies: [],
             particles: [],
+            items: [], // Array to store active items
             score: 0,
             wave: 1,
             enemiesPerWave: 5,
             enemySpawnTimer: 0,
             enemySpawnRate: 120,
+            maxEnemies: 15, // Maximum number of enemies allowed on screen
             gameOver: false,
             keys: {},
             mouse: { x: 0, y: 0, isDown: false },
@@ -187,6 +191,94 @@
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
+            }
+        }
+        
+        class Item {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.radius = 8;
+                this.pulseTime = 0;
+                this.collected = false;
+            }
+
+            update() {
+                // Pulse animation
+                this.pulseTime += 0.1;
+                const pulseFactor = 1 + Math.sin(this.pulseTime) * 0.2;
+                
+                // Check if player collected the item
+                const dx = game.player.x - this.x;
+                const dy = game.player.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < this.radius + game.player.radius) {
+                    this.collected = true;
+                    this.applyEffect();
+                }
+                
+                return !this.collected;
+            }
+
+            draw() {
+                const pulseFactor = 1 + Math.sin(this.pulseTime) * 0.2;
+                ctx.save();
+                
+                // Different colors and symbols for different power-ups
+                switch(this.type) {
+                    case 'damage':
+                        ctx.fillStyle = '#ff4444';
+                        ctx.shadowColor = '#ff0000';
+                        break;
+                    case 'speed':
+                        ctx.fillStyle = '#44ff44';
+                        ctx.shadowColor = '#00ff00';
+                        break;
+                    case 'health':
+                        ctx.fillStyle = '#4444ff';
+                        ctx.shadowColor = '#0000ff';
+                        break;
+                    case 'fireRate':
+                        ctx.fillStyle = '#ffff44';
+                        ctx.shadowColor = '#ffff00';
+                        break;
+                }
+                
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * pulseFactor, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw symbol
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const symbol = this.type === 'damage' ? '↑' :
+                             this.type === 'speed' ? '→' :
+                             this.type === 'health' ? '+' : '⚡';
+                ctx.fillText(symbol, this.x, this.y);
+                
+                ctx.restore();
+            }
+
+            applyEffect() {
+                switch(this.type) {
+                    case 'damage':
+                        game.player.damageMultiplier += 0.1; // 10% damage increase
+                        break;
+                    case 'speed':
+                        game.player.speed += 0.2; // Small speed boost
+                        break;
+                    case 'health':
+                        game.player.health = Math.min(game.player.maxHealth, game.player.health + 20); // Heal 20 HP
+                        break;
+                    case 'fireRate':
+                        game.player.maxShootCooldown = Math.max(5, game.player.maxShootCooldown - 1); // Decrease cooldown
+                        break;
+                }
             }
         }
         
@@ -323,10 +415,16 @@
             }
             
             takeDamage() {
-                this.health--;
+                this.health -= game.player.damageMultiplier;
                 if (this.health <= 0) {
                     game.score += 10;
                     createParticles(this.x, this.y, this.hue);
+                    
+                    // 15% chance to drop an item
+                    if (Math.random() < 0.15) {
+                        spawnItem(this.x, this.y);
+                    }
+                    
                     return true;
                 }
                 return false;
@@ -448,7 +546,25 @@
         }
         
         function spawnEnemy() {
-            game.enemies.push(new Enemy());
+            // Only spawn if below max enemies
+            if (game.enemies.length < game.maxEnemies) {
+                game.enemies.push(new Enemy());
+                
+                // 40% chance to increase wave when an enemy spawns
+                if (Math.random() < 0.4) {
+                    game.wave++;
+                    // Increase max enemies every 5 waves
+                    if (game.wave % 5 === 0) {
+                        game.maxEnemies = Math.min(30, game.maxEnemies + 1); // Cap at 30 enemies
+                    }
+                }
+            }
+        }
+        
+        function spawnItem(x, y) {
+            const types = ['damage', 'speed', 'health', 'fireRate'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            game.items.push(new Item(x, y, type));
         }
         
         function updatePlayer() {
@@ -525,9 +641,8 @@
             game.survivalTime++;
             
             // Calculate spawn rate based on survival time
-            const baseSpawnRate = 120; // Starting spawn rate
+            const baseSpawnRate = 120;
             const minutes = game.survivalTime / (60 * 60);
-            // More aggressive spawn rate reduction
             game.enemySpawnRate = Math.max(20, Math.floor(baseSpawnRate / (game.difficultyMultiplier * 1.2)));
 
             // Handle continuous shooting
@@ -541,16 +656,14 @@
                 game.player.shootCooldown--;
             }
 
+            // Update items
+            game.items = game.items.filter(item => item.update());
+
             // Spawn enemies
             game.enemySpawnTimer++;
             if (game.enemySpawnTimer >= game.enemySpawnRate) {
                 spawnEnemy();
                 game.enemySpawnTimer = 0;
-                
-                // 40% chance to increase wave when an enemy spawns
-                if (Math.random() < 0.4) {
-                    game.wave++;
-                }
             }
             
             // Update bullets
@@ -595,6 +708,9 @@
                 new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height).draw();
             });
             
+            // Draw items
+            game.items.forEach(item => item.draw());
+            
             // Draw particles
             game.particles.forEach(particle => particle.draw());
             
@@ -611,7 +727,7 @@
             document.getElementById('score').textContent = game.score;
             document.getElementById('health').textContent = Math.max(0, game.player.health);
             document.getElementById('wave').textContent = 
-                `${game.wave} (${Math.floor(game.survivalTime / (60 * 60))}:${Math.floor((game.survivalTime / 60) % 60).toString().padStart(2, '0')})`;
+                `${game.wave} (${Math.floor(game.survivalTime / (60 * 60))}:${Math.floor((game.survivalTime / 60) % 60).toString().padStart(2, '0')}) - ${game.enemies.length}/${game.maxEnemies}`;
             
             if (game.gameOver) {
                 document.getElementById('finalScore').textContent = game.score;
@@ -623,13 +739,18 @@
             game.player.x = canvas.width / 2;
             game.player.y = canvas.height / 2;
             game.player.health = game.player.maxHealth;
+            game.player.damageMultiplier = 1;
+            game.player.speed = 4;
+            game.player.maxShootCooldown = 10;
             game.bullets = [];
             game.enemies = [];
             game.particles = [];
+            game.items = [];
             game.score = 0;
             game.wave = 1;
             game.enemySpawnTimer = 0;
             game.enemySpawnRate = 120;
+            game.maxEnemies = 15; // Reset max enemies on restart
             game.gameOver = false;
             game.survivalTime = 0;
             game.difficultyMultiplier = 1;
