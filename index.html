@@ -103,7 +103,13 @@
             enemySpawnRate: 120, // frames between spawns
             gameOver: false,
             keys: {},
-            mouse: { x: 0, y: 0 }
+            mouse: { x: 0, y: 0 },
+            obstacles: [
+                { x: 100, y: 100, width: 100, height: 20 },
+                { x: 600, y: 400, width: 20, height: 150 },
+                { x: 300, y: 300, width: 150, height: 20 },
+                { x: 400, y: 100, width: 20, height: 100 }
+            ]
         };
         
         // Input handling
@@ -142,8 +148,19 @@
             }
             
             update() {
-                this.x += this.vx;
-                this.y += this.vy;
+                const newX = this.x + this.vx;
+                const newY = this.y + this.vy;
+
+                // Check obstacle collisions
+                for (let obstacle of game.obstacles) {
+                    if (new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
+                        .collidesWith(newX, newY, this.radius)) {
+                        return false; // Bullet is destroyed
+                    }
+                }
+
+                this.x = newX;
+                this.y = newY;
                 this.life--;
                 
                 return this.life > 0 && 
@@ -199,9 +216,27 @@
                 const dy = game.player.y - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 
+                let newX = this.x;
+                let newY = this.y;
+                
                 if (dist > 0) {
-                    this.x += (dx / dist) * this.speed;
-                    this.y += (dy / dist) * this.speed;
+                    newX = this.x + (dx / dist) * this.speed;
+                    newY = this.y + (dy / dist) * this.speed;
+                }
+
+                // Check obstacle collisions
+                let canMove = true;
+                for (let obstacle of game.obstacles) {
+                    if (new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
+                        .collidesWith(newX, newY, this.radius)) {
+                        canMove = false;
+                        break;
+                    }
+                }
+
+                if (canMove) {
+                    this.x = newX;
+                    this.y = newY;
                 }
 
                 // Check collision with other enemies
@@ -319,6 +354,38 @@
             }
         }
         
+        class Obstacle {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.fillStyle = '#555';
+                ctx.shadowColor = '#333';
+                ctx.shadowBlur = 5;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.restore();
+            }
+
+            collidesWith(x, y, radius) {
+                // Find the closest point to the circle within the rectangle
+                const closestX = Math.max(this.x, Math.min(x, this.x + this.width));
+                const closestY = Math.max(this.y, Math.min(y, this.y + this.height));
+                
+                // Calculate the distance between the circle's center and this closest point
+                const distanceX = x - closestX;
+                const distanceY = y - closestY;
+                
+                // If the distance is less than the circle's radius, an intersection occurs
+                const distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+                return distanceSquared < (radius * radius);
+            }
+        }
+        
         function createParticles(x, y, hue) {
             for (let i = 0; i < 8; i++) {
                 game.particles.push(new Particle(x, y, hue));
@@ -345,18 +412,36 @@
         function updatePlayer() {
             if (game.gameOver) return;
             
+            let newX = game.player.x;
+            let newY = game.player.y;
+
             // Movement
             if (game.keys['w'] || game.keys['arrowup']) {
-                game.player.y = Math.max(game.player.radius, game.player.y - game.player.speed);
+                newY = game.player.y - game.player.speed;
             }
             if (game.keys['s'] || game.keys['arrowdown']) {
-                game.player.y = Math.min(canvas.height - game.player.radius, game.player.y + game.player.speed);
+                newY = game.player.y + game.player.speed;
             }
             if (game.keys['a'] || game.keys['arrowleft']) {
-                game.player.x = Math.max(game.player.radius, game.player.x - game.player.speed);
+                newX = game.player.x - game.player.speed;
             }
             if (game.keys['d'] || game.keys['arrowright']) {
-                game.player.x = Math.min(canvas.width - game.player.radius, game.player.x + game.player.speed);
+                newX = game.player.x + game.player.speed;
+            }
+
+            // Check obstacle collisions
+            let canMove = true;
+            for (let obstacle of game.obstacles) {
+                if (new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
+                    .collidesWith(newX, newY, game.player.radius)) {
+                    canMove = false;
+                    break;
+                }
+            }
+
+            if (canMove) {
+                game.player.x = Math.min(Math.max(game.player.radius, newX), canvas.width - game.player.radius);
+                game.player.y = Math.min(Math.max(game.player.radius, newY), canvas.height - game.player.radius);
             }
             
             // Aim toward mouse
@@ -438,6 +523,11 @@
             // Clear canvas
             ctx.fillStyle = 'rgba(17, 17, 17, 0.1)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw obstacles
+            game.obstacles.forEach(obstacle => {
+                new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height).draw();
+            });
             
             // Draw particles
             game.particles.forEach(particle => particle.draw());
