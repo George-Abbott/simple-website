@@ -203,6 +203,27 @@
                     this.x += (dx / dist) * this.speed;
                     this.y += (dy / dist) * this.speed;
                 }
+
+                // Check collision with other enemies
+                for (let other of game.enemies) {
+                    if (other === this) continue;
+                    
+                    const enemyDx = this.x - other.x;
+                    const enemyDy = this.y - other.y;
+                    const enemyDist = Math.sqrt(enemyDx * enemyDx + enemyDy * enemyDy);
+                    const minDist = this.radius + other.radius;
+                    
+                    if (enemyDist < minDist) {
+                        // Push enemies apart
+                        const pushX = (enemyDx / enemyDist) * (minDist - enemyDist) * 0.5;
+                        const pushY = (enemyDy / enemyDist) * (minDist - enemyDist) * 0.5;
+                        
+                        this.x += pushX;
+                        this.y += pushY;
+                        other.x -= pushX;
+                        other.y -= pushY;
+                    }
+                }
                 
                 // Check collision with player
                 const playerDist = Math.sqrt(
