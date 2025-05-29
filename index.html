@@ -91,7 +91,9 @@
                 health: 100,
                 maxHealth: 100,
                 speed: 4,
-                angle: 0
+                angle: 0,
+                shootCooldown: 0,
+                maxShootCooldown: 10 // Adjust this number to control fire rate (lower = faster)
             },
             bullets: [],
             enemies: [],
@@ -103,7 +105,7 @@
             enemySpawnRate: 120, // frames between spawns
             gameOver: false,
             keys: {},
-            mouse: { x: 0, y: 0 },
+            mouse: { x: 0, y: 0, isDown: false },
             obstacles: [
                 { x: 100, y: 100, width: 100, height: 20 },
                 { x: 600, y: 400, width: 20, height: 150 },
@@ -130,10 +132,16 @@
             game.mouse.y = e.clientY - rect.top;
         });
         
-        canvas.addEventListener('click', (e) => {
-            if (!game.gameOver) {
-                shoot();
-            }
+        canvas.addEventListener('mousedown', (e) => {
+            game.mouse.isDown = true;
+        });
+        
+        canvas.addEventListener('mouseup', (e) => {
+            game.mouse.isDown = false;
+        });
+        
+        canvas.addEventListener('mouseleave', (e) => {
+            game.mouse.isDown = false;
         });
         
         // Game objects
@@ -507,6 +515,17 @@
         function updateGame() {
             if (game.gameOver) return;
             
+            // Handle continuous shooting
+            if (game.mouse.isDown && game.player.shootCooldown <= 0) {
+                shoot();
+                game.player.shootCooldown = game.player.maxShootCooldown;
+            }
+            
+            // Update shoot cooldown
+            if (game.player.shootCooldown > 0) {
+                game.player.shootCooldown--;
+            }
+
             // Spawn enemies
             game.enemySpawnTimer++;
             if (game.enemySpawnTimer >= game.enemySpawnRate) {
