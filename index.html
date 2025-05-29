@@ -215,11 +215,11 @@
                 
                 // Scale attributes based on survival time
                 const minutes = game.survivalTime / (60 * 60); // Convert frames to minutes
-                game.difficultyMultiplier = 1 + (minutes * 0.2); // Increase by 20% per minute
+                game.difficultyMultiplier = 1 + (minutes * 0.5); // Increase by 50% per minute (up from 20%)
 
                 this.radius = 10 + Math.random() * 8;
-                this.speed = (1 + Math.random() * 1.5) * game.difficultyMultiplier;
-                this.health = Math.ceil((2 + Math.floor(game.wave / 3)) * game.difficultyMultiplier);
+                this.speed = (1 + Math.random() * 1.5) * (game.difficultyMultiplier * 0.8); // Slightly reduced speed scaling
+                this.health = Math.ceil((2 + Math.floor(game.wave / 2)) * game.difficultyMultiplier * 1.2); // Increased health scaling
                 this.maxHealth = this.health;
                 this.hue = Math.random() * 60 + 300;
             }
@@ -527,7 +527,8 @@
             // Calculate spawn rate based on survival time
             const baseSpawnRate = 120; // Starting spawn rate
             const minutes = game.survivalTime / (60 * 60);
-            game.enemySpawnRate = Math.max(30, Math.floor(baseSpawnRate / game.difficultyMultiplier));
+            // More aggressive spawn rate reduction
+            game.enemySpawnRate = Math.max(20, Math.floor(baseSpawnRate / (game.difficultyMultiplier * 1.2)));
 
             // Handle continuous shooting
             if (game.mouse.isDown && game.player.shootCooldown <= 0) {
@@ -545,6 +546,11 @@
             if (game.enemySpawnTimer >= game.enemySpawnRate) {
                 spawnEnemy();
                 game.enemySpawnTimer = 0;
+                
+                // 40% chance to increase wave when an enemy spawns
+                if (Math.random() < 0.4) {
+                    game.wave++;
+                }
             }
             
             // Update bullets
