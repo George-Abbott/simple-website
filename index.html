@@ -93,7 +93,7 @@
                 speed: 4,
                 angle: 0,
                 shootCooldown: 0,
-                maxShootCooldown: 10 // Adjust this number to control fire rate (lower = faster)
+                maxShootCooldown: 10
             },
             bullets: [],
             enemies: [],
@@ -102,7 +102,7 @@
             wave: 1,
             enemiesPerWave: 5,
             enemySpawnTimer: 0,
-            enemySpawnRate: 120, // frames between spawns
+            enemySpawnRate: 120,
             gameOver: false,
             keys: {},
             mouse: { x: 0, y: 0, isDown: false },
@@ -111,7 +111,9 @@
                 { x: 600, y: 400, width: 20, height: 150 },
                 { x: 200, y: 400, width: 150, height: 20 },
                 { x: 400, y: 100, width: 20, height: 100 }
-            ]
+            ],
+            survivalTime: 0, // Time in frames (60 frames = 1 second)
+            difficultyMultiplier: 1 // Base difficulty multiplier
         };
         
         // Input handling
@@ -211,11 +213,15 @@
                         break;
                 }
                 
+                // Scale attributes based on survival time
+                const minutes = game.survivalTime / (60 * 60); // Convert frames to minutes
+                game.difficultyMultiplier = 1 + (minutes * 0.2); // Increase by 20% per minute
+
                 this.radius = 10 + Math.random() * 8;
-                this.speed = 1 + Math.random() * 1.5;
-                this.health = 2 + Math.floor(game.wave / 3);
+                this.speed = (1 + Math.random() * 1.5) * game.difficultyMultiplier;
+                this.health = Math.ceil((2 + Math.floor(game.wave / 3)) * game.difficultyMultiplier);
                 this.maxHealth = this.health;
-                this.hue = Math.random() * 60 + 300; // Purple to red range
+                this.hue = Math.random() * 60 + 300;
             }
             
             update() {
@@ -515,6 +521,14 @@
         function updateGame() {
             if (game.gameOver) return;
             
+            // Update survival time and difficulty
+            game.survivalTime++;
+            
+            // Calculate spawn rate based on survival time
+            const baseSpawnRate = 120; // Starting spawn rate
+            const minutes = game.survivalTime / (60 * 60);
+            game.enemySpawnRate = Math.max(30, Math.floor(baseSpawnRate / game.difficultyMultiplier));
+
             // Handle continuous shooting
             if (game.mouse.isDown && game.player.shootCooldown <= 0) {
                 shoot();
@@ -531,12 +545,6 @@
             if (game.enemySpawnTimer >= game.enemySpawnRate) {
                 spawnEnemy();
                 game.enemySpawnTimer = 0;
-                
-                // Increase difficulty
-                if (game.enemies.length === 0 && Math.random() < 0.3) {
-                    game.wave++;
-                    game.enemySpawnRate = Math.max(60, game.enemySpawnRate - 5);
-                }
             }
             
             // Update bullets
@@ -596,7 +604,8 @@
             // Update UI
             document.getElementById('score').textContent = game.score;
             document.getElementById('health').textContent = Math.max(0, game.player.health);
-            document.getElementById('wave').textContent = game.wave;
+            document.getElementById('wave').textContent = 
+                `${game.wave} (${Math.floor(game.survivalTime / (60 * 60))}:${Math.floor((game.survivalTime / 60) % 60).toString().padStart(2, '0')})`;
             
             if (game.gameOver) {
                 document.getElementById('finalScore').textContent = game.score;
@@ -616,6 +625,8 @@
             game.enemySpawnTimer = 0;
             game.enemySpawnRate = 120;
             game.gameOver = false;
+            game.survivalTime = 0;
+            game.difficultyMultiplier = 1;
             document.getElementById('gameOver').style.display = 'none';
         }
         
