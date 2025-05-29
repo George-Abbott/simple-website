@@ -107,7 +107,7 @@
             obstacles: [
                 { x: 100, y: 100, width: 100, height: 20 },
                 { x: 600, y: 400, width: 20, height: 150 },
-                { x: 200, y: 400, width: 150, height: 20 },
+                { x: 300, y: 300, width: 150, height: 20 },
                 { x: 400, y: 100, width: 20, height: 100 }
             ]
         };
@@ -216,27 +216,9 @@
                 const dy = game.player.y - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 
-                let newX = this.x;
-                let newY = this.y;
-                
                 if (dist > 0) {
-                    newX = this.x + (dx / dist) * this.speed;
-                    newY = this.y + (dy / dist) * this.speed;
-                }
-
-                // Check obstacle collisions
-                let canMove = true;
-                for (let obstacle of game.obstacles) {
-                    if (new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
-                        .collidesWith(newX, newY, this.radius)) {
-                        canMove = false;
-                        break;
-                    }
-                }
-
-                if (canMove) {
-                    this.x = newX;
-                    this.y = newY;
+                    this.x += (dx / dist) * this.speed;
+                    this.y += (dy / dist) * this.speed;
                 }
 
                 // Check collision with other enemies
@@ -259,6 +241,18 @@
                         other.y -= pushY;
                     }
                 }
+
+                // Resolve any obstacle collisions that might have occurred
+                let wasResolved;
+                do {
+                    wasResolved = false;
+                    for (let obstacle of game.obstacles) {
+                        if (new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
+                            .resolveCollision(this)) {
+                            wasResolved = true;
+                        }
+                    }
+                } while (wasResolved); // Keep resolving until no more collisions exist
                 
                 // Check collision with player
                 const playerDist = Math.sqrt(
@@ -384,6 +378,28 @@
                 const distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
                 return distanceSquared < (radius * radius);
             }
+
+            resolveCollision(entity) {
+                // Find the closest point to the circle within the rectangle
+                const closestX = Math.max(this.x, Math.min(entity.x, this.x + this.width));
+                const closestY = Math.max(this.y, Math.min(entity.y, this.y + this.height));
+                
+                // Calculate the distance and direction from the closest point to the circle center
+                const dx = entity.x - closestX;
+                const dy = entity.y - closestY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < entity.radius && distance > 0) {
+                    // Calculate the minimum distance needed to separate the circle from the rectangle
+                    const pushDistance = entity.radius - distance;
+                    
+                    // Normalize the direction and apply the push
+                    entity.x += (dx / distance) * pushDistance;
+                    entity.y += (dy / distance) * pushDistance;
+                    return true;
+                }
+                return false;
+            }
         }
         
         function createParticles(x, y, hue) {
@@ -429,20 +445,21 @@
                 newX = game.player.x + game.player.speed;
             }
 
-            // Check obstacle collisions
-            let canMove = true;
-            for (let obstacle of game.obstacles) {
-                if (new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
-                    .collidesWith(newX, newY, game.player.radius)) {
-                    canMove = false;
-                    break;
-                }
-            }
+            // Apply movement within canvas bounds
+            game.player.x = Math.min(Math.max(game.player.radius, newX), canvas.width - game.player.radius);
+            game.player.y = Math.min(Math.max(game.player.radius, newY), canvas.height - game.player.radius);
 
-            if (canMove) {
-                game.player.x = Math.min(Math.max(game.player.radius, newX), canvas.width - game.player.radius);
-                game.player.y = Math.min(Math.max(game.player.radius, newY), canvas.height - game.player.radius);
-            }
+            // Resolve any obstacle collisions that might have occurred
+            let wasResolved;
+            do {
+                wasResolved = false;
+                for (let obstacle of game.obstacles) {
+                    if (new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
+                        .resolveCollision(game.player)) {
+                        wasResolved = true;
+                    }
+                }
+            } while (wasResolved); // Keep resolving until no more collisions exist
             
             // Aim toward mouse
             game.player.angle = Math.atan2(
