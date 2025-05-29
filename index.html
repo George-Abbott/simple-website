@@ -107,7 +107,7 @@
             obstacles: [
                 { x: 100, y: 100, width: 100, height: 20 },
                 { x: 600, y: 400, width: 20, height: 150 },
-                { x: 300, y: 300, width: 150, height: 20 },
+                { x: 200, y: 400, width: 150, height: 20 },
                 { x: 400, y: 100, width: 20, height: 100 }
             ]
         };
@@ -230,7 +230,7 @@
                     const enemyDist = Math.sqrt(enemyDx * enemyDx + enemyDy * enemyDy);
                     const minDist = this.radius + other.radius;
                     
-                    if (enemyDist < minDist) {
+                    if (enemyDist < minDist && enemyDist > 0) {
                         // Push enemies apart
                         const pushX = (enemyDx / enemyDist) * (minDist - enemyDist) * 0.5;
                         const pushY = (enemyDy / enemyDist) * (minDist - enemyDist) * 0.5;
@@ -243,16 +243,20 @@
                 }
 
                 // Resolve any obstacle collisions that might have occurred
-                let wasResolved;
-                do {
-                    wasResolved = false;
+                let attempts = 0;
+                const MAX_ATTEMPTS = 3;
+                
+                while (attempts < MAX_ATTEMPTS) {
+                    let hasCollision = false;
                     for (let obstacle of game.obstacles) {
                         if (new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
                             .resolveCollision(this)) {
-                            wasResolved = true;
+                            hasCollision = true;
                         }
                     }
-                } while (wasResolved); // Keep resolving until no more collisions exist
+                    if (!hasCollision) break;
+                    attempts++;
+                }
                 
                 // Check collision with player
                 const playerDist = Math.sqrt(
@@ -260,7 +264,7 @@
                     (this.y - game.player.y) ** 2
                 );
                 
-                if (playerDist < this.radius + game.player.radius) {
+                if (playerDist < this.radius + game.player.radius && playerDist > 0) {
                     game.player.health -= 1;
                     if (game.player.health <= 0) {
                         game.gameOver = true;
@@ -393,9 +397,17 @@
                     // Calculate the minimum distance needed to separate the circle from the rectangle
                     const pushDistance = entity.radius - distance;
                     
-                    // Normalize the direction and apply the push
-                    entity.x += (dx / distance) * pushDistance;
-                    entity.y += (dy / distance) * pushDistance;
+                    // Normalize the direction and apply the push with a small buffer
+                    const pushX = (dx / distance) * (pushDistance + 0.1); // Add small buffer
+                    const pushY = (dy / distance) * (pushDistance + 0.1);
+                    
+                    entity.x += pushX;
+                    entity.y += pushY;
+                    
+                    // Ensure the entity stays within canvas bounds
+                    entity.x = Math.min(Math.max(entity.radius, entity.x), canvas.width - entity.radius);
+                    entity.y = Math.min(Math.max(entity.radius, entity.y), canvas.height - entity.radius);
+                    
                     return true;
                 }
                 return false;
@@ -450,16 +462,20 @@
             game.player.y = Math.min(Math.max(game.player.radius, newY), canvas.height - game.player.radius);
 
             // Resolve any obstacle collisions that might have occurred
-            let wasResolved;
-            do {
-                wasResolved = false;
+            let attempts = 0;
+            const MAX_ATTEMPTS = 3;
+            
+            while (attempts < MAX_ATTEMPTS) {
+                let hasCollision = false;
                 for (let obstacle of game.obstacles) {
                     if (new Obstacle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
                         .resolveCollision(game.player)) {
-                        wasResolved = true;
+                        hasCollision = true;
                     }
                 }
-            } while (wasResolved); // Keep resolving until no more collisions exist
+                if (!hasCollision) break;
+                attempts++;
+            }
             
             // Aim toward mouse
             game.player.angle = Math.atan2(
