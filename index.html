@@ -296,6 +296,29 @@
             }
         });
 
+        // Restore the missing input event listeners
+        document.addEventListener('keyup', (e) => {
+            game.keys[e.key.toLowerCase()] = false;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            game.mouse.x = e.clientX - rect.left;
+            game.mouse.y = e.clientY - rect.top;
+        });
+        
+        canvas.addEventListener('mousedown', (e) => {
+            game.mouse.isDown = true;
+        });
+        
+        canvas.addEventListener('mouseup', (e) => {
+            game.mouse.isDown = false;
+        });
+        
+        canvas.addEventListener('mouseleave', (e) => {
+            game.mouse.isDown = false;
+        });
+
         function togglePause() {
             game.isPaused = !game.isPaused;
             pauseMenu.style.display = game.isPaused ? 'block' : 'none';
@@ -340,7 +363,8 @@
 
         backgroundColor.addEventListener('input', (e) => {
             game.settings.backgroundColor = e.target.value;
-            document.body.style.background = e.target.value;
+            // Only change the game background color, not the page background
+            document.querySelector('#gameContainer').style.background = e.target.value;
         });
 
         playerShape.addEventListener('change', (e) => {
@@ -944,8 +968,8 @@
         }
         
         function draw() {
-            // Clear canvas with custom background color
-            ctx.fillStyle = game.settings.backgroundColor;
+            // Clear canvas with custom background color, using alpha for trail effect
+            ctx.fillStyle = game.settings.backgroundColor + '1A'; // 1A = 10% opacity
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // Draw obstacles
