@@ -143,6 +143,24 @@
             width: 100%;
             margin: 10px 0;
         }
+
+        .option-group input[type="number"] {
+            width: 70px;
+            padding: 3px;
+            margin: 5px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 3px;
+        }
+
+        #stats {
+            position: absolute;
+            top: 80px;
+            left: 10px;
+            font-size: 14px;
+            color: #aaa;
+        }
     </style>
 </head>
 <body>
@@ -152,6 +170,11 @@
             <div>Score: <span id="score">0</span></div>
             <div>Health: <span id="health">100</span></div>
             <div>Wave: <span id="wave">1</span></div>
+            <div id="stats" style="display: none;">
+                <div>Damage: <span id="statDamage">1</span></div>
+                <div>Speed: <span id="statSpeed">4</span></div>
+                <div>Fire Rate: <span id="statFireRate">10</span></div>
+            </div>
         </div>
         <div id="gameOver">
             <div>Game Over!</div>
@@ -209,6 +232,27 @@
                     <div>Volume: <span id="volumeValue">50</span>%</div>
                 </div>
 
+                <div class="option-group">
+                    <h3>Display</h3>
+                    <label>
+                        <input type="checkbox" id="showStats" checked> Show Player Stats
+                    </label>
+                </div>
+
+                <div class="option-group">
+                    <h3>Initial Player Stats</h3>
+                    <div>Health: <input type="number" id="initialHealth" value="100" min="50" max="200"></div>
+                    <div>Speed: <input type="number" id="initialSpeed" value="4" min="2" max="8" step="0.5"></div>
+                    <div>Damage: <input type="number" id="initialDamage" value="1" min="0.5" max="5" step="0.5"></div>
+                    <div>Fire Rate: <input type="number" id="initialFireRate" value="10" min="5" max="20"></div>
+                </div>
+
+                <div class="option-group">
+                    <h3>Game Balance</h3>
+                    <div>Difficulty Scaling (%/min): <input type="number" id="scaleRate" value="50" min="10" max="100"></div>
+                    <div>Item Drop Chance (%): <input type="number" id="dropChance" value="15" min="5" max="50"></div>
+                </div>
+
                 <button class="menu-button back-button" id="backButton">Back to Pause Menu</button>
             </div>
         </div>
@@ -262,7 +306,18 @@
                 enemyShape: 'circle',
                 obstacleColor: '#555555',
                 backgroundColor: '#111111',
-                volume: 50
+                volume: 50,
+                showStats: true,
+                initialStats: {
+                    health: 100,
+                    speed: 4,
+                    damage: 1,
+                    fireRate: 10
+                },
+                difficultyScaling: {
+                    scaleRate: 0.5, // 50% increase per minute
+                    itemDropChance: 0.15 // 15% chance
+                }
             }
         };
         
@@ -386,6 +441,36 @@
         volumeSlider.addEventListener('input', (e) => {
             game.settings.volume = e.target.value;
             volumeValue.textContent = e.target.value;
+        });
+
+        // Add event listeners for new options
+        document.getElementById('showStats').addEventListener('change', (e) => {
+            game.settings.showStats = e.target.checked;
+            document.getElementById('stats').style.display = e.target.checked ? 'block' : 'none';
+        });
+
+        document.getElementById('initialHealth').addEventListener('change', (e) => {
+            game.settings.initialStats.health = Number(e.target.value);
+        });
+
+        document.getElementById('initialSpeed').addEventListener('change', (e) => {
+            game.settings.initialStats.speed = Number(e.target.value);
+        });
+
+        document.getElementById('initialDamage').addEventListener('change', (e) => {
+            game.settings.initialStats.damage = Number(e.target.value);
+        });
+
+        document.getElementById('initialFireRate').addEventListener('change', (e) => {
+            game.settings.initialStats.fireRate = Number(e.target.value);
+        });
+
+        document.getElementById('scaleRate').addEventListener('change', (e) => {
+            game.settings.difficultyScaling.scaleRate = Number(e.target.value) / 100;
+        });
+
+        document.getElementById('dropChance').addEventListener('change', (e) => {
+            game.settings.difficultyScaling.itemDropChance = Number(e.target.value) / 100;
         });
 
         // Game objects
@@ -543,13 +628,13 @@
                         break;
                 }
                 
-                // Scale attributes based on survival time
-                const minutes = game.survivalTime / (60 * 60); // Convert frames to minutes
-                game.difficultyMultiplier = 1 + (minutes * 0.5); // Increase by 50% per minute (up from 20%)
+                // Scale attributes based on survival time with custom scale rate
+                const minutes = game.survivalTime / (60 * 60);
+                game.difficultyMultiplier = 1 + (minutes * game.settings.difficultyScaling.scaleRate);
 
                 this.radius = 10 + Math.random() * 8;
-                this.speed = (1 + Math.random() * 1.5) * (game.difficultyMultiplier * 0.8); // Slightly reduced speed scaling
-                this.health = Math.ceil((2 + Math.floor(game.wave / 2)) * game.difficultyMultiplier * 1.2); // Increased health scaling
+                this.speed = (1 + Math.random() * 1.5) * (game.difficultyMultiplier * 0.8);
+                this.health = Math.ceil((2 + Math.floor(game.wave / 2)) * game.difficultyMultiplier * 1.2);
                 this.maxHealth = this.health;
                 this.hue = Math.random() * 60 + 300;
             }
@@ -674,8 +759,8 @@
                     game.score += 10;
                     createParticles(this.x, this.y, this.hue);
                     
-                    // 15% chance to drop an item
-                    if (Math.random() < 0.15) {
+                    // Use custom drop chance
+                    if (Math.random() < game.settings.difficultyScaling.itemDropChance) {
                         spawnItem(this.x, this.y);
                     }
                     
@@ -1002,15 +1087,26 @@
                 document.getElementById('finalScore').textContent = game.score;
                 document.getElementById('gameOver').style.display = 'block';
             }
+
+            // Update stats display if enabled
+            if (game.settings.showStats) {
+                document.getElementById('statDamage').textContent = game.player.damageMultiplier.toFixed(1);
+                document.getElementById('statSpeed').textContent = game.player.speed.toFixed(1);
+                document.getElementById('statFireRate').textContent = game.player.maxShootCooldown;
+            }
         }
         
         function restartGame() {
             game.player.x = canvas.width / 2;
             game.player.y = canvas.height / 2;
-            game.player.health = game.player.maxHealth;
-            game.player.damageMultiplier = 1;
-            game.player.speed = 4;
-            game.player.maxShootCooldown = 10;
+            game.player.health = game.settings.initialStats.health;
+            game.player.maxHealth = game.settings.initialStats.health;
+            game.player.speed = game.settings.initialStats.speed;
+            game.player.damage = game.settings.initialStats.damage;
+            game.player.damageMultiplier = game.settings.initialStats.damage;
+            game.player.maxShootCooldown = game.settings.initialStats.fireRate;
+            game.player.color = '#00ff88';
+            game.player.shape = 'circle';
             game.bullets = [];
             game.enemies = [];
             game.particles = [];
@@ -1019,12 +1115,10 @@
             game.wave = 1;
             game.enemySpawnTimer = 0;
             game.enemySpawnRate = 120;
-            game.maxEnemies = 15; // Reset max enemies on restart
+            game.maxEnemies = 15;
             game.gameOver = false;
             game.survivalTime = 0;
             game.difficultyMultiplier = 1;
-            game.player.color = '#00ff88';
-            game.player.shape = 'circle';
             document.getElementById('gameOver').style.display = 'none';
         }
         
