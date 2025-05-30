@@ -58,6 +58,91 @@
             font-size: 12px;
             opacity: 0.7;
         }
+
+        #pauseMenu {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            min-width: 300px;
+        }
+
+        #optionsMenu {
+            display: none;
+        }
+
+        .menu-button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background: #333;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            transition: background 0.3s;
+        }
+
+        .menu-button:hover {
+            background: #444;
+        }
+
+        .option-group {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 5px;
+        }
+
+        .option-group h3 {
+            margin: 0 0 10px 0;
+            color: #aaa;
+        }
+
+        .color-picker {
+            width: 100%;
+            height: 30px;
+            margin: 5px 0;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .shape-select {
+            width: 100%;
+            padding: 5px;
+            margin: 5px 0;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 3px;
+        }
+
+        .resolution-select {
+            width: 100%;
+            padding: 5px;
+            margin: 5px 0;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 3px;
+        }
+
+        .back-button {
+            margin-top: 20px;
+        }
+
+        #volumeSlider {
+            width: 100%;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -74,7 +159,58 @@
             <div style="margin-top: 10px; font-size: 16px;">Press SPACE to restart</div>
         </div>
         <div id="instructions">
-            WASD: Move | Mouse: Aim | Click: Shoot | SPACE: Restart (when dead)
+            WASD: Move | Mouse: Aim | Click: Shoot | SPACE: Restart (when dead) | ESC: Pause
+        </div>
+
+        <!-- Pause Menu -->
+        <div id="pauseMenu">
+            <h2 style="text-align: center; margin-top: 0;">Paused</h2>
+            <button class="menu-button" id="resumeButton">Resume</button>
+            <button class="menu-button" id="optionsButton">Options</button>
+            <button class="menu-button" id="restartButton">Start Over</button>
+
+            <!-- Options Menu -->
+            <div id="optionsMenu">
+                <div class="option-group">
+                    <h3>Colors</h3>
+                    <div>Player: <input type="color" id="playerColor" class="color-picker" value="#00ff88"></div>
+                    <div>Enemies: <input type="color" id="enemyColor" class="color-picker" value="#ff4444"></div>
+                    <div>Obstacles: <input type="color" id="obstacleColor" class="color-picker" value="#555555"></div>
+                    <div>Background: <input type="color" id="backgroundColor" class="color-picker" value="#111111"></div>
+                </div>
+
+                <div class="option-group">
+                    <h3>Shapes</h3>
+                    <select id="playerShape" class="shape-select">
+                        <option value="circle">Circle</option>
+                        <option value="square">Square</option>
+                        <option value="triangle">Triangle</option>
+                    </select>
+                    <select id="enemyShape" class="shape-select">
+                        <option value="circle">Circle</option>
+                        <option value="square">Square</option>
+                        <option value="triangle">Triangle</option>
+                    </select>
+                </div>
+
+                <div class="option-group">
+                    <h3>Resolution</h3>
+                    <select id="resolution" class="resolution-select">
+                        <option value="800x600">800x600</option>
+                        <option value="1024x768">1024x768</option>
+                        <option value="1280x720">1280x720</option>
+                        <option value="1920x1080">1920x1080</option>
+                    </select>
+                </div>
+
+                <div class="option-group">
+                    <h3>Sound</h3>
+                    <input type="range" id="volumeSlider" min="0" max="100" value="50">
+                    <div>Volume: <span id="volumeValue">50</span>%</div>
+                </div>
+
+                <button class="menu-button back-button" id="backButton">Back to Pause Menu</button>
+            </div>
         </div>
     </div>
 
@@ -94,62 +230,140 @@
                 angle: 0,
                 shootCooldown: 0,
                 maxShootCooldown: 10,
-                damage: 1, // Base damage for bullets
-                damageMultiplier: 1 // Multiplier for damage upgrades
+                damage: 1,
+                damageMultiplier: 1,
+                color: '#00ff88',
+                shape: 'circle'
             },
             bullets: [],
             enemies: [],
             particles: [],
-            items: [], // Array to store active items
+            items: [],
             score: 0,
             wave: 1,
             enemiesPerWave: 5,
             enemySpawnTimer: 0,
             enemySpawnRate: 120,
-            maxEnemies: 15, // Maximum number of enemies allowed on screen
+            maxEnemies: 15,
             gameOver: false,
+            isPaused: false,
             keys: {},
             mouse: { x: 0, y: 0, isDown: false },
             obstacles: [
                 { x: 100, y: 100, width: 100, height: 20 },
                 { x: 600, y: 400, width: 20, height: 150 },
-                { x: 200, y: 400, width: 150, height: 20 },
+                { x: 300, y: 300, width: 150, height: 20 },
                 { x: 400, y: 100, width: 20, height: 100 }
             ],
-            survivalTime: 0, // Time in frames (60 frames = 1 second)
-            difficultyMultiplier: 1 // Base difficulty multiplier
+            survivalTime: 0,
+            difficultyMultiplier: 1,
+            settings: {
+                enemyColor: '#ff4444',
+                enemyShape: 'circle',
+                obstacleColor: '#555555',
+                backgroundColor: '#111111',
+                volume: 50
+            }
         };
         
-        // Input handling
+        // Pause menu elements
+        const pauseMenu = document.getElementById('pauseMenu');
+        const optionsMenu = document.getElementById('optionsMenu');
+        const resumeButton = document.getElementById('resumeButton');
+        const optionsButton = document.getElementById('optionsButton');
+        const restartButton = document.getElementById('restartButton');
+        const backButton = document.getElementById('backButton');
+
+        // Options elements
+        const playerColor = document.getElementById('playerColor');
+        const enemyColor = document.getElementById('enemyColor');
+        const obstacleColor = document.getElementById('obstacleColor');
+        const backgroundColor = document.getElementById('backgroundColor');
+        const playerShape = document.getElementById('playerShape');
+        const enemyShape = document.getElementById('enemyShape');
+        const resolution = document.getElementById('resolution');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeValue = document.getElementById('volumeValue');
+
+        // Event listeners for pause menu
         document.addEventListener('keydown', (e) => {
             game.keys[e.key.toLowerCase()] = true;
             if (e.key === ' ' && game.gameOver) {
                 restartGame();
             }
+            if (e.key === 'Escape') {
+                togglePause();
+            }
         });
-        
-        document.addEventListener('keyup', (e) => {
-            game.keys[e.key.toLowerCase()] = false;
+
+        function togglePause() {
+            game.isPaused = !game.isPaused;
+            pauseMenu.style.display = game.isPaused ? 'block' : 'none';
+            if (!game.isPaused) {
+                optionsMenu.style.display = 'none';
+            }
+        }
+
+        // Menu button listeners
+        resumeButton.addEventListener('click', togglePause);
+        optionsButton.addEventListener('click', () => {
+            pauseMenu.querySelector('h2').style.display = 'none';
+            resumeButton.style.display = 'none';
+            optionsButton.style.display = 'none';
+            restartButton.style.display = 'none';
+            optionsMenu.style.display = 'block';
         });
-        
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            game.mouse.x = e.clientX - rect.left;
-            game.mouse.y = e.clientY - rect.top;
+        restartButton.addEventListener('click', () => {
+            togglePause();
+            restartGame();
         });
-        
-        canvas.addEventListener('mousedown', (e) => {
-            game.mouse.isDown = true;
+        backButton.addEventListener('click', () => {
+            pauseMenu.querySelector('h2').style.display = 'block';
+            resumeButton.style.display = 'block';
+            optionsButton.style.display = 'block';
+            restartButton.style.display = 'block';
+            optionsMenu.style.display = 'none';
         });
-        
-        canvas.addEventListener('mouseup', (e) => {
-            game.mouse.isDown = false;
+
+        // Options listeners
+        playerColor.addEventListener('input', (e) => {
+            game.player.color = e.target.value;
         });
-        
-        canvas.addEventListener('mouseleave', (e) => {
-            game.mouse.isDown = false;
+
+        enemyColor.addEventListener('input', (e) => {
+            game.settings.enemyColor = e.target.value;
         });
-        
+
+        obstacleColor.addEventListener('input', (e) => {
+            game.settings.obstacleColor = e.target.value;
+        });
+
+        backgroundColor.addEventListener('input', (e) => {
+            game.settings.backgroundColor = e.target.value;
+            document.body.style.background = e.target.value;
+        });
+
+        playerShape.addEventListener('change', (e) => {
+            game.player.shape = e.target.value;
+        });
+
+        enemyShape.addEventListener('change', (e) => {
+            game.settings.enemyShape = e.target.value;
+        });
+
+        resolution.addEventListener('change', (e) => {
+            const [width, height] = e.target.value.split('x').map(Number);
+            canvas.width = width;
+            canvas.height = height;
+            game.player.x = width / 2;
+            game.player.y = height / 2;
+        });
+
+        volumeSlider.addEventListener('input', (e) => {
+            game.settings.volume = e.target.value;
+            volumeValue.textContent = e.target.value;
+        });
+
         // Game objects
         class Bullet {
             constructor(x, y, angle, speed = 8) {
@@ -391,12 +605,28 @@
                 const intensity = 0.3 + healthPercent * 0.7;
                 
                 ctx.save();
-                ctx.fillStyle = `hsl(${this.hue}, 70%, ${intensity * 50}%)`;
-                ctx.shadowColor = `hsl(${this.hue}, 70%, 50%)`;
+                ctx.fillStyle = game.settings.enemyColor;
+                ctx.shadowColor = game.settings.enemyColor;
                 ctx.shadowBlur = 8;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fill();
+
+                switch(game.settings.enemyShape) {
+                    case 'square':
+                        ctx.fillRect(this.x - this.radius, this.y - this.radius, 
+                                   this.radius * 2, this.radius * 2);
+                        break;
+                    case 'triangle':
+                        ctx.beginPath();
+                        ctx.moveTo(this.x + this.radius, this.y);
+                        ctx.lineTo(this.x - this.radius, this.y - this.radius);
+                        ctx.lineTo(this.x - this.radius, this.y + this.radius);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                    default: // circle
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                        ctx.fill();
+                }
                 
                 // Health bar
                 if (this.health < this.maxHealth) {
@@ -474,8 +704,8 @@
             
             draw() {
                 ctx.save();
-                ctx.fillStyle = '#555';
-                ctx.shadowColor = '#333';
+                ctx.fillStyle = game.settings.obstacleColor;
+                ctx.shadowColor = game.settings.obstacleColor;
                 ctx.shadowBlur = 5;
                 ctx.fillRect(this.x, this.y, this.width, this.height);
                 ctx.restore();
@@ -568,7 +798,7 @@
         }
         
         function updatePlayer() {
-            if (game.gameOver) return;
+            if (game.gameOver || game.isPaused) return;
             
             let newX = game.player.x;
             let newY = game.player.y;
@@ -619,13 +849,28 @@
             ctx.translate(game.player.x, game.player.y);
             ctx.rotate(game.player.angle);
             
-            // Player body
-            ctx.fillStyle = game.gameOver ? '#666' : '#00ff88';
-            ctx.shadowColor = '#00ff88';
+            ctx.fillStyle = game.gameOver ? '#666' : game.player.color;
+            ctx.shadowColor = game.player.color;
             ctx.shadowBlur = 10;
-            ctx.beginPath();
-            ctx.arc(0, 0, game.player.radius, 0, Math.PI * 2);
-            ctx.fill();
+
+            switch(game.player.shape) {
+                case 'square':
+                    ctx.fillRect(-game.player.radius, -game.player.radius, 
+                               game.player.radius * 2, game.player.radius * 2);
+                    break;
+                case 'triangle':
+                    ctx.beginPath();
+                    ctx.moveTo(game.player.radius * 1.5, 0);
+                    ctx.lineTo(-game.player.radius, -game.player.radius);
+                    ctx.lineTo(-game.player.radius, game.player.radius);
+                    ctx.closePath();
+                    ctx.fill();
+                    break;
+                default: // circle
+                    ctx.beginPath();
+                    ctx.arc(0, 0, game.player.radius, 0, Math.PI * 2);
+                    ctx.fill();
+            }
             
             // Gun barrel
             ctx.fillStyle = '#aaa';
@@ -635,7 +880,7 @@
         }
         
         function updateGame() {
-            if (game.gameOver) return;
+            if (game.gameOver || game.isPaused) return;
             
             // Update survival time and difficulty
             game.survivalTime++;
@@ -699,8 +944,8 @@
         }
         
         function draw() {
-            // Clear canvas
-            ctx.fillStyle = 'rgba(17, 17, 17, 0.1)';
+            // Clear canvas with custom background color
+            ctx.fillStyle = game.settings.backgroundColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // Draw obstacles
@@ -754,6 +999,8 @@
             game.gameOver = false;
             game.survivalTime = 0;
             game.difficultyMultiplier = 1;
+            game.player.color = '#00ff88';
+            game.player.shape = 'circle';
             document.getElementById('gameOver').style.display = 'none';
         }
         
