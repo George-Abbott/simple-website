@@ -7,7 +7,7 @@
     <style>
         body {
             margin: 0;
-            padding: 0;
+            padding: 20px;
             background: #111;
             display: flex;
             justify-content: center;
@@ -16,6 +16,12 @@
             font-family: 'Courier New', monospace;
             color: white;
             overflow: hidden;
+        }
+        
+        .game-wrapper {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
         }
         
         #gameContainer {
@@ -29,12 +35,35 @@
         }
         
         #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 100;
+            width: 200px;
             font-size: 18px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            height: fit-content;
+        }
+        
+        .stat-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        .stat-label {
+            color: #aaa;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
         }
         
         #gameOver {
@@ -169,107 +198,129 @@
     </style>
 </head>
 <body>
-    <div id="gameContainer">
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
-        <div id="ui">
-            <div>Score: <span id="score">0</span></div>
-            <div>Health: <span id="health">100</span></div>
-            <div>Wave: <span id="wave">1</span></div>
-            <div id="stats" style="display: none;">
-                <div>Damage: <span id="statDamage">1</span></div>
-                <div>Speed: <span id="statSpeed">4</span></div>
-                <div>Fire Rate: <span id="statFireRate">10</span></div>
+    <div class="game-wrapper">
+        <div id="gameContainer">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+            <div id="gameOver">
+                <div>Game Over!</div>
+                <div>Final Score: <span id="finalScore">0</span></div>
+                <div style="margin-top: 10px; font-size: 16px;">Press SPACE to restart</div>
+            </div>
+            <div id="instructions">
+                WASD: Move | Mouse: Aim | Click: Shoot | SPACE: Restart (when dead) | ESC: Pause
+            </div>
+            <!-- Pause Menu -->
+            <div id="pauseMenu">
+                <h2 style="text-align: center; margin-top: 0;">Paused</h2>
+                <button class="menu-button" id="resumeButton">Resume</button>
+                <button class="menu-button" id="optionsButton">Options</button>
+                <button class="menu-button" id="restartButton">Start Over</button>
+
+                <!-- Options Menu -->
+                <div id="optionsMenu">
+                    <div class="options-container">
+                        <div class="left-column">
+                            <div class="option-group">
+                                <h3>Colors</h3>
+                                <div>Player: <input type="color" id="playerColor" class="color-picker" value="#00ff88"></div>
+                                <div>Enemies: <input type="color" id="enemyColor" class="color-picker" value="#ff4444"></div>
+                                <div>Obstacles: <input type="color" id="obstacleColor" class="color-picker" value="#555555"></div>
+                                <div>Background: <input type="color" id="backgroundColor" class="color-picker" value="#111111"></div>
+                            </div>
+
+                            <div class="option-group">
+                                <h3>Shapes</h3>
+                                <div>Player:
+                                    <select id="playerShape" class="shape-select">
+                                        <option value="circle">Circle</option>
+                                        <option value="square">Square</option>
+                                        <option value="triangle">Triangle</option>
+                                    </select>
+                                </div>
+                                <div>Enemies:
+                                    <select id="enemyShape" class="shape-select">
+                                        <option value="circle">Circle</option>
+                                        <option value="square">Square</option>
+                                        <option value="triangle">Triangle</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="option-group">
+                                <h3>Display</h3>
+                                <div>
+                                    <label>
+                                        <input type="checkbox" id="showStats" checked> Show Player Stats
+                                    </label>
+                                </div>
+                                <div>Resolution:
+                                    <select id="resolution" class="resolution-select">
+                                        <option value="800x600">800x600</option>
+                                        <option value="1024x768">1024x768</option>
+                                        <option value="1280x720">1280x720</option>
+                                        <option value="1920x1080">1920x1080</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="right-column">
+                            <div class="option-group">
+                                <h3>Initial Player Stats</h3>
+                                <div>Health: <input type="number" id="initialHealth" value="100" min="50" max="200"></div>
+                                <div>Speed: <input type="number" id="initialSpeed" value="4" min="2" max="8" step="0.5"></div>
+                                <div>Damage: <input type="number" id="initialDamage" value="1" min="0.5" max="5" step="0.5"></div>
+                                <div>Fire Rate: <input type="number" id="initialFireRate" value="10" min="5" max="20"></div>
+                            </div>
+
+                            <div class="option-group">
+                                <h3>Game Balance</h3>
+                                <div>Difficulty (%/min): <input type="number" id="scaleRate" value="20" min="10" max="100"></div>
+                                <div>Drop Chance (%): <input type="number" id="dropChance" value="50" min="5" max="50"></div>
+                            </div>
+
+                            <div class="option-group">
+                                <h3>Sound</h3>
+                                <div>
+                                    <input type="range" id="volumeSlider" min="0" max="100" value="50">
+                                    <div>Volume: <span id="volumeValue">50</span>%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="menu-button back-button" id="backButton">Back to Pause Menu</button>
+                </div>
             </div>
         </div>
-        <div id="gameOver">
-            <div>Game Over!</div>
-            <div>Final Score: <span id="finalScore">0</span></div>
-            <div style="margin-top: 10px; font-size: 16px;">Press SPACE to restart</div>
-        </div>
-        <div id="instructions">
-            WASD: Move | Mouse: Aim | Click: Shoot | SPACE: Restart (when dead) | ESC: Pause
-        </div>
-
-        <!-- Pause Menu -->
-        <div id="pauseMenu">
-            <h2 style="text-align: center; margin-top: 0;">Paused</h2>
-            <button class="menu-button" id="resumeButton">Resume</button>
-            <button class="menu-button" id="optionsButton">Options</button>
-            <button class="menu-button" id="restartButton">Start Over</button>
-
-            <!-- Options Menu -->
-            <div id="optionsMenu">
-                <div class="options-container">
-                    <div class="left-column">
-                        <div class="option-group">
-                            <h3>Colors</h3>
-                            <div>Player: <input type="color" id="playerColor" class="color-picker" value="#00ff88"></div>
-                            <div>Enemies: <input type="color" id="enemyColor" class="color-picker" value="#ff4444"></div>
-                            <div>Obstacles: <input type="color" id="obstacleColor" class="color-picker" value="#555555"></div>
-                            <div>Background: <input type="color" id="backgroundColor" class="color-picker" value="#111111"></div>
-                        </div>
-
-                        <div class="option-group">
-                            <h3>Shapes</h3>
-                            <div>Player:
-                                <select id="playerShape" class="shape-select">
-                                    <option value="circle">Circle</option>
-                                    <option value="square">Square</option>
-                                    <option value="triangle">Triangle</option>
-                                </select>
-                            </div>
-                            <div>Enemies:
-                                <select id="enemyShape" class="shape-select">
-                                    <option value="circle">Circle</option>
-                                    <option value="square">Square</option>
-                                    <option value="triangle">Triangle</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="option-group">
-                            <h3>Display</h3>
-                            <div>
-                                <label>
-                                    <input type="checkbox" id="showStats" checked> Show Player Stats
-                                </label>
-                            </div>
-                            <div>Resolution:
-                                <select id="resolution" class="resolution-select">
-                                    <option value="800x600">800x600</option>
-                                    <option value="1024x768">1024x768</option>
-                                    <option value="1280x720">1280x720</option>
-                                    <option value="1920x1080">1920x1080</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="right-column">
-                        <div class="option-group">
-                            <h3>Initial Player Stats</h3>
-                            <div>Health: <input type="number" id="initialHealth" value="100" min="50" max="200"></div>
-                            <div>Speed: <input type="number" id="initialSpeed" value="4" min="2" max="8" step="0.5"></div>
-                            <div>Damage: <input type="number" id="initialDamage" value="1" min="0.5" max="5" step="0.5"></div>
-                            <div>Fire Rate: <input type="number" id="initialFireRate" value="10" min="5" max="20"></div>
-                        </div>
-
-                        <div class="option-group">
-                            <h3>Game Balance</h3>
-                            <div>Difficulty (%/min): <input type="number" id="scaleRate" value="20" min="10" max="100"></div>
-                            <div>Drop Chance (%): <input type="number" id="dropChance" value="50" min="5" max="50"></div>
-                        </div>
-
-                        <div class="option-group">
-                            <h3>Sound</h3>
-                            <div>
-                                <input type="range" id="volumeSlider" min="0" max="100" value="50">
-                                <div>Volume: <span id="volumeValue">50</span>%</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <button class="menu-button back-button" id="backButton">Back to Pause Menu</button>
+        <div id="ui">
+            <h3 style="margin: 0 0 10px 0; text-align: center; color: #00ff88; border-bottom: 2px solid #00ff88; padding-bottom: 5px;">PLAYER STATS</h3>
+            <div class="stat-row">
+                <span class="stat-label">Score:</span>
+                <span class="stat-value" id="score">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Health:</span>
+                <span class="stat-value" id="health">100</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Wave:</span>
+                <span class="stat-value" id="wave">1</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Damage:</span>
+                <span class="stat-value" id="statDamage">1.0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Speed:</span>
+                <span class="stat-value" id="statSpeed">4.0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Fire Rate:</span>
+                <span class="stat-value" id="statFireRate">10</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Enemies:</span>
+                <span class="stat-value" id="enemyCount">0/15</span>
             </div>
         </div>
     </div>
@@ -1166,22 +1217,18 @@
             // Draw player
             drawPlayer();
             
-            // Update UI
+            // Update UI with all stats
             document.getElementById('score').textContent = game.score;
-            document.getElementById('health').textContent = Math.max(0, game.player.health);
-            document.getElementById('wave').textContent = 
-                `${game.wave} (${Math.floor(game.survivalTime / (60 * 60))}:${Math.floor((game.survivalTime / 60) % 60).toString().padStart(2, '0')}) - ${game.enemies.length}/${game.maxEnemies}`;
+            document.getElementById('health').textContent = Math.max(0, Math.floor(game.player.health));
+            document.getElementById('wave').textContent = game.wave;
+            document.getElementById('statDamage').textContent = game.player.damageMultiplier.toFixed(1);
+            document.getElementById('statSpeed').textContent = game.player.speed.toFixed(1);
+            document.getElementById('statFireRate').textContent = (60 / game.player.maxShootCooldown).toFixed(1);
+            document.getElementById('enemyCount').textContent = `${game.enemies.length}/${game.maxEnemies}`;
             
             if (game.gameOver) {
                 document.getElementById('finalScore').textContent = game.score;
                 document.getElementById('gameOver').style.display = 'block';
-            }
-
-            // Update stats display if enabled
-            if (game.settings.showStats) {
-                document.getElementById('statDamage').textContent = game.player.damageMultiplier.toFixed(1);
-                document.getElementById('statSpeed').textContent = game.player.speed.toFixed(1);
-                document.getElementById('statFireRate').textContent = game.player.maxShootCooldown;
             }
         }
         
