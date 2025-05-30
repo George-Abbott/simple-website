@@ -256,8 +256,8 @@
 
                         <div class="option-group">
                             <h3>Game Balance</h3>
-                            <div>Difficulty (%/min): <input type="number" id="scaleRate" value="50" min="10" max="100"></div>
-                            <div>Drop Chance (%): <input type="number" id="dropChance" value="15" min="5" max="50"></div>
+                            <div>Difficulty (%/min): <input type="number" id="scaleRate" value="20" min="10" max="100"></div>
+                            <div>Drop Chance (%): <input type="number" id="dropChance" value="50" min="5" max="50"></div>
                         </div>
 
                         <div class="option-group">
@@ -312,7 +312,7 @@
             obstacles: [
                 { x: 100, y: 100, width: 100, height: 20 },
                 { x: 600, y: 400, width: 20, height: 150 },
-                { x: 300, y: 300, width: 150, height: 20 },
+                { x: 200, y: 400, width: 150, height: 20 },
                 { x: 400, y: 100, width: 20, height: 100 }
             ],
             survivalTime: 0,
@@ -331,8 +331,8 @@
                     fireRate: 10
                 },
                 difficultyScaling: {
-                    scaleRate: 0.5, // 50% increase per minute
-                    itemDropChance: 0.15 // 15% chance
+                    scaleRate: 0.2, // Changed from 0.5 (50%) to 0.2 (20%)
+                    itemDropChance: 0.5 // Changed from 0.15 (15%) to 0.5 (50%)
                 }
             }
         };
@@ -356,45 +356,115 @@
         const volumeSlider = document.getElementById('volumeSlider');
         const volumeValue = document.getElementById('volumeValue');
 
-        // Event listeners for pause menu
-        document.addEventListener('keydown', (e) => {
-            game.keys[e.key.toLowerCase()] = true;
-            if (e.key === ' ' && game.gameOver) {
-                restartGame();
+        // Improved mouse handling
+        let gameContainer = document.getElementById('gameContainer');
+        let rect = gameContainer.getBoundingClientRect();
+
+        // Update rectangle on window resize
+        window.addEventListener('resize', () => {
+            rect = gameContainer.getBoundingClientRect();
+        });
+
+        // Update mouse position relative to game container
+        function updateMousePosition(e) {
+            // Get mouse position relative to the game container
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Check if mouse is within game bounds
+            if (x >= 0 && x <= canvas.width && y >= 0 && y <= canvas.height) {
+                game.mouse.x = x;
+                game.mouse.y = y;
             }
-            if (e.key === 'Escape') {
-                togglePause();
+        }
+
+        // Mouse move handler for the entire window
+        window.addEventListener('mousemove', (e) => {
+            updateMousePosition(e);
+        });
+
+        // Mouse down handler for the entire window
+        window.addEventListener('mousedown', (e) => {
+            updateMousePosition(e);
+            // Only start shooting if mouse is within game bounds
+            if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                game.mouse.isDown = true;
             }
         });
 
-        // Restore the missing input event listeners
+        // Mouse up handler for the entire window
+        window.addEventListener('mouseup', (e) => {
+            game.mouse.isDown = false;
+        });
+
+        // Remove the old canvas-specific mouse event listeners
+        canvas.removeEventListener('mousemove', null);
+        canvas.removeEventListener('mousedown', null);
+        canvas.removeEventListener('mouseup', null);
+        canvas.removeEventListener('mouseleave', null);
+
+        // Options button click handler with improved menu state management
+        optionsButton.addEventListener('click', () => {
+            const mainMenuItems = pauseMenu.querySelector('h2');
+            if (mainMenuItems) mainMenuItems.style.display = 'none';
+            if (resumeButton) resumeButton.style.display = 'none';
+            if (optionsButton) optionsButton.style.display = 'none';
+            if (restartButton) restartButton.style.display = 'none';
+            if (optionsMenu) optionsMenu.style.display = 'block';
+        });
+
+        // Back button click handler with improved menu state management
+        backButton.addEventListener('click', () => {
+            const mainMenuItems = pauseMenu.querySelector('h2');
+            if (mainMenuItems) mainMenuItems.style.display = 'block';
+            if (resumeButton) resumeButton.style.display = 'block';
+            if (optionsButton) optionsButton.style.display = 'block';
+            if (restartButton) restartButton.style.display = 'block';
+            if (optionsMenu) optionsMenu.style.display = 'none';
+        });
+
+        // Keyboard event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                try {
+                    togglePause();
+                } catch (error) {
+                    // Reset menu state if there's an error
+                    game.isPaused = false;
+                    if (pauseMenu) pauseMenu.style.display = 'none';
+                    if (optionsMenu) optionsMenu.style.display = 'none';
+                    console.error('Error toggling pause menu:', error);
+                }
+                return;
+            }
+            
+            // Prevent default behavior for game controls
+            if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
+                e.preventDefault();
+            }
+            
+            game.keys[e.key.toLowerCase()] = true;
+            
+            if (e.key === ' ' && game.gameOver) {
+                restartGame();
+            }
+        });
+
         document.addEventListener('keyup', (e) => {
             game.keys[e.key.toLowerCase()] = false;
-        });
-        
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            game.mouse.x = e.clientX - rect.left;
-            game.mouse.y = e.clientY - rect.top;
-        });
-        
-        canvas.addEventListener('mousedown', (e) => {
-            game.mouse.isDown = true;
-        });
-        
-        canvas.addEventListener('mouseup', (e) => {
-            game.mouse.isDown = false;
-        });
-        
-        canvas.addEventListener('mouseleave', (e) => {
-            game.mouse.isDown = false;
         });
 
         function togglePause() {
             game.isPaused = !game.isPaused;
             pauseMenu.style.display = game.isPaused ? 'block' : 'none';
             if (!game.isPaused) {
+                // Reset menu state when unpausing
                 optionsMenu.style.display = 'none';
+                pauseMenu.querySelector('h2').style.display = 'block';
+                resumeButton.style.display = 'block';
+                optionsButton.style.display = 'block';
+                restartButton.style.display = 'block';
             }
         }
 
@@ -928,18 +998,18 @@
             let newX = game.player.x;
             let newY = game.player.y;
 
-            // Movement
+            // Movement - using proper key checks
             if (game.keys['w'] || game.keys['arrowup']) {
-                newY = game.player.y - game.player.speed;
+                newY -= game.player.speed;
             }
             if (game.keys['s'] || game.keys['arrowdown']) {
-                newY = game.player.y + game.player.speed;
+                newY += game.player.speed;
             }
             if (game.keys['a'] || game.keys['arrowleft']) {
-                newX = game.player.x - game.player.speed;
+                newX -= game.player.speed;
             }
             if (game.keys['d'] || game.keys['arrowright']) {
-                newX = game.player.x + game.player.speed;
+                newX += game.player.speed;
             }
 
             // Apply movement within canvas bounds
@@ -963,10 +1033,12 @@
             }
             
             // Aim toward mouse
-            game.player.angle = Math.atan2(
-                game.mouse.y - game.player.y,
-                game.mouse.x - game.player.x
-            );
+            if (game.mouse.x !== undefined && game.mouse.y !== undefined) {
+                game.player.angle = Math.atan2(
+                    game.mouse.y - game.player.y,
+                    game.mouse.x - game.player.x
+                );
+            }
         }
         
         function drawPlayer() {
@@ -1029,14 +1101,10 @@
             // Update items
             game.items = game.items.filter(item => item.update());
 
-            // Spawn enemies
-            game.enemySpawnTimer++;
-            if (game.enemySpawnTimer >= game.enemySpawnRate) {
-                spawnEnemy();
-                game.enemySpawnTimer = 0;
-            }
-            
-            // Update bullets
+            // Update player
+            updatePlayer();
+
+            // Update bullets with collision detection
             game.bullets = game.bullets.filter(bullet => {
                 const alive = bullet.update();
                 
@@ -1052,7 +1120,7 @@
                         if (enemy.takeDamage()) {
                             game.enemies.splice(i, 1);
                         }
-                        return false; // Remove bullet
+                        return false; // Remove bullet on hit
                     }
                 }
                 
@@ -1065,7 +1133,12 @@
             // Update particles
             game.particles = game.particles.filter(particle => particle.update());
             
-            updatePlayer();
+            // Spawn enemies
+            game.enemySpawnTimer++;
+            if (game.enemySpawnTimer >= game.enemySpawnRate) {
+                spawnEnemy();
+                game.enemySpawnTimer = 0;
+            }
         }
         
         function draw() {
